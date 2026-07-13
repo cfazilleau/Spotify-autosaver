@@ -1,0 +1,60 @@
+name: Publish Docker image
+
+# Builds the image and pushes it to the GitHub Container Registry (GHCR):
+#   ghcr.io/<owner>/spotify-autosaver
+#
+# Publishes on `version/x.y.z` tags:
+#   git tag version/1.0.0 && git push origin version/1.0.0
+#
+# Tags produced:
+#   - the version itself  (e.g. `1.0.0`, taken from the part after `version/`)
+#   - `latest`
+#   - `sha-<short>`
+
+on:
+  push:
+    tags: ["version/*.*.*"]
+  workflow_dispatch: {}
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=match,pattern=version/(.*),group=1
+            type=raw,value=latest
+            type=sha
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

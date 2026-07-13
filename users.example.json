@@ -1,0 +1,15 @@
+{
+  "users": [
+    {
+      "name": "me",
+      "refresh_token": "PASTE_YOUR_REFRESH_TOKEN_HERE"
+    },
+    {
+      "name": "a-friend",
+      "refresh_token": "PASTE_THEIR_REFRESH_TOKEN_HERE",
+      "playlist_name": "Liked Songs (Latest 100)",
+      "track_count": 100,
+      "playlist_public": false
+    }
+  ]
+}

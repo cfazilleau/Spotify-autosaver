@@ -4,6 +4,8 @@
 !.env.example
 .cache
 .cache-*
+# Per-account refresh tokens — keep the real file out of git
+users.json
 
 # Python
 __pycache__/

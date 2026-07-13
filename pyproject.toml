@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spotify-autosaver"
+version = "1.0.0"
+description = "Keep a Spotify playlist mirroring your most recently liked songs."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Clément Fazilleau" }]
+keywords = ["spotify", "playlist", "automation", "liked-songs"]
+dependencies = [
+    "spotipy>=2.23.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+spotify-autosaver = "spotify_autosaver.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/cfazilleau/spotify-autosaver"
+Repository = "https://github.com/cfazilleau/spotify-autosaver"
+
+[tool.setuptools.packages.find]
+include = ["spotify_autosaver*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
