@@ -4,9 +4,9 @@ Two authentication modes are supported:
 
 * **Interactive** — a one-time browser login that caches a refresh token to a
   local file (``AUTOSAVER_CACHE_PATH``). Best for running on your own machine.
-* **Headless** — a ``SPOTIFY_REFRESH_TOKEN`` supplied via the environment. Best
-  for servers, containers, and CI (e.g. GitHub Actions) where no browser is
-  available.
+* **Headless** — a stored refresh token supplied per user (via the users file
+  or ``SPOTIFY_REFRESH_TOKEN``). Best for servers, containers, and CI where no
+  browser is available, and for syncing several accounts at once.
 """
 
 from __future__ import annotations
@@ -18,17 +18,23 @@ from spotipy.oauth2 import SpotifyOAuth
 from .config import SCOPE, Config
 
 
-def build_auth_manager(config: Config, *, open_browser: bool = True) -> SpotifyOAuth:
-    """Create a :class:`SpotifyOAuth` manager for the given configuration."""
+def build_auth_manager(
+    config: Config, refresh_token: str | None = None, *, open_browser: bool = True
+) -> SpotifyOAuth:
+    """Create a :class:`SpotifyOAuth` manager.
 
-    if config.refresh_token:
+    When ``refresh_token`` is provided the token cache is seeded with it (no
+    interactive login is ever needed); otherwise spotipy manages a local cache
+    file and prompts for an interactive login on first use.
+    """
+
+    if refresh_token:
         # Seed the token cache with the stored refresh token. ``expires_at`` of
-        # zero forces spotipy to refresh immediately on first use, so we never
-        # need an interactive login.
+        # zero forces spotipy to refresh immediately on first use.
         cache_handler = MemoryCacheHandler(
             token_info={
                 "access_token": "",
-                "refresh_token": config.refresh_token,
+                "refresh_token": refresh_token,
                 "expires_at": 0,
                 "scope": SCOPE,
                 "token_type": "Bearer",
@@ -47,7 +53,17 @@ def build_auth_manager(config: Config, *, open_browser: bool = True) -> SpotifyO
     )
 
 
-def get_client(config: Config, *, open_browser: bool = True) -> spotipy.Spotify:
-    """Return an authenticated :class:`spotipy.Spotify` client."""
+def get_client(
+    config: Config, refresh_token: str | None = None, *, open_browser: bool = True
+) -> spotipy.Spotify:
+    """Return an authenticated :class:`spotipy.Spotify` client.
 
-    return spotipy.Spotify(auth_manager=build_auth_manager(config, open_browser=open_browser))
+    Pass ``refresh_token`` to authenticate a specific account headlessly; omit
+    it to fall back to the interactive/cached login.
+    """
+
+    return spotipy.Spotify(
+        auth_manager=build_auth_manager(
+            config, refresh_token, open_browser=open_browser
+        )
+    )

@@ -3,16 +3,29 @@
 from __future__ import annotations
 
 import logging
+from typing import Protocol
 
 import spotipy
-
-from .config import Config
 
 log = logging.getLogger(__name__)
 
 # Spotify caps most track-related requests at 100 items per call.
 _MAX_PAGE = 50
 _MAX_ITEMS_PER_REQUEST = 100
+
+
+class SyncTarget(Protocol):
+    """The playlist settings the sync functions need.
+
+    Both :class:`~spotify_autosaver.config.Config` (single account) and
+    :class:`~spotify_autosaver.users.UserConfig` (one of many) satisfy this.
+    """
+
+    track_count: int
+    playlist_id: str | None
+    playlist_name: str
+    playlist_public: bool
+    playlist_description: str
 
 
 def fetch_recent_liked_uris(client: spotipy.Spotify, limit: int) -> list[str]:
@@ -60,7 +73,7 @@ def find_playlist(client: spotipy.Spotify, name: str, owner_id: str) -> str | No
     return None
 
 
-def resolve_playlist_id(client: spotipy.Spotify, config: Config) -> str:
+def resolve_playlist_id(client: spotipy.Spotify, config: SyncTarget) -> str:
     """Return the target playlist id, creating the playlist if necessary."""
 
     if config.playlist_id:
@@ -96,7 +109,7 @@ def replace_playlist_items(
         )
 
 
-def sync_once(client: spotipy.Spotify, config: Config) -> int:
+def sync_once(client: spotipy.Spotify, config: SyncTarget) -> int:
     """Perform a single sync. Returns the number of tracks written."""
 
     uris = fetch_recent_liked_uris(client, config.track_count)
@@ -133,7 +146,7 @@ def fetch_liked_signature(client: spotipy.Spotify) -> LibrarySignature:
 
 def sync_if_changed(
     client: spotipy.Spotify,
-    config: Config,
+    config: SyncTarget,
     playlist_id: str,
     last_signature: LibrarySignature | None,
 ) -> tuple[LibrarySignature, int]:

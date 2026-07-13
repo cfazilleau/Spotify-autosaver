@@ -21,6 +21,7 @@ def make_config(**overrides) -> Config:
         redirect_uri="http://127.0.0.1:8888/callback",
         refresh_token=None,
         cache_path=".cache",
+        users_file="users.json",
         track_count=100,
         playlist_id=None,
         playlist_name="Liked Songs (Latest 100)",

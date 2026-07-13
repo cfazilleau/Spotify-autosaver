@@ -83,11 +83,50 @@ refresh token:
 
 ```bash
 spotify-autosaver auth
-# → prints SPOTIFY_REFRESH_TOKEN=...
+# → prints a users.json entry AND a SPOTIFY_REFRESH_TOKEN= line
 ```
 
-Provide that token (plus the client id/secret) via the environment and no
-interactive login is ever needed.
+Provide that token (plus the client id/secret) and no interactive login is ever
+needed. For a single account you can set `SPOTIFY_REFRESH_TOKEN` in the
+environment; for one or more accounts, use the users file below.
+
+## Syncing multiple accounts (users file)
+
+To mirror liked songs for several people (e.g. you and friends) from **one**
+deployment, list each account's refresh token in a JSON file — by default
+`users.json`, or set `AUTOSAVER_USERS_FILE`. When this file exists it takes
+precedence over `SPOTIFY_REFRESH_TOKEN`.
+
+```json
+{
+  "users": [
+    { "name": "me", "refresh_token": "AQ...my-token" },
+    { "name": "alex", "refresh_token": "AQ...alex-token", "playlist_name": "Alex latest 100" }
+  ]
+}
+```
+
+- Only `refresh_token` is required per entry. `name`, `playlist_name`,
+  `playlist_id`, `track_count`, `playlist_public`, and `playlist_description`
+  are optional and fall back to the global defaults.
+- Each account gets its **own** playlist in its **own** Spotify account, its own
+  change-detection state, and is polled independently. One failing account never
+  stops the others.
+- Each friend generates their token by running `spotify-autosaver auth` (on a
+  machine with a browser) and sending you the printed entry, which you paste in.
+- The client id/secret in `.env` are the shared **app** credentials — they stay
+  in the environment; only the per-account tokens go in this file.
+
+> **Heads-up (Spotify limit):** a Spotify app starts in *Development Mode*,
+> capped at **25 users**, and each account's email must be added under
+> **User Management** in the [developer dashboard](https://developer.spotify.com/dashboard)
+> before it can authorize. More than that requires a quota-extension request.
+
+> **Security:** `users.json` holds credentials that can read libraries and edit
+> playlists for every listed account. It's git-ignored by default — keep it
+> private and mount it read-only (as the compose file does).
+
+Copy [`users.example.json`](users.example.json) to `users.json` to get started.
 
 ### Docker (build locally)
 
@@ -119,19 +158,24 @@ echo "$CR_PAT" | docker login ghcr.io -u cfazilleau --password-stdin
 > push, and for any private package.
 
 **2. Pull and run.** The bundled [`docker-compose.yml`](docker-compose.yml)
-already points at the GHCR image, so on your local machine just:
+already points at the GHCR image and mounts `users.json`, so on your local
+machine just:
 
 ```bash
-cp .env.example .env      # fill in credentials + SPOTIFY_REFRESH_TOKEN
-docker compose pull       # fetch the latest published image
-docker compose up -d      # run continuously, auto-restart
+cp .env.example .env             # fill in the app client id/secret
+cp users.example.json users.json # add each account's refresh token
+docker compose pull              # fetch the latest published image
+docker compose up -d             # run continuously, auto-restart
 ```
 
-Or without compose:
+Add or remove friends by editing `users.json` and running
+`docker compose restart`. Or without compose:
 
 ```bash
 docker run -d --name spotify-autosaver --restart unless-stopped \
   --env-file .env \
+  -e AUTOSAVER_USERS_FILE=/app/users.json \
+  -v "$PWD/users.json:/app/users.json:ro" \
   ghcr.io/cfazilleau/spotify-autosaver:latest run
 ```
 

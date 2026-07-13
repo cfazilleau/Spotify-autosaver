@@ -51,9 +51,11 @@ class Config:
     redirect_uri: str
 
     # Auth: either a stored refresh token (headless / CI) or a cache file that
-    # spotipy manages after an interactive login.
+    # spotipy manages after an interactive login. For multiple accounts, list
+    # their tokens in the users file (see ``users_file``) instead.
     refresh_token: str | None
     cache_path: str
+    users_file: str
 
     # What to sync.
     track_count: int
@@ -108,6 +110,8 @@ class Config:
             redirect_uri=redirect_uri,
             refresh_token=(os.getenv("SPOTIFY_REFRESH_TOKEN") or "").strip() or None,
             cache_path=os.getenv("AUTOSAVER_CACHE_PATH", ".cache").strip() or ".cache",
+            users_file=os.getenv("AUTOSAVER_USERS_FILE", "users.json").strip()
+            or "users.json",
             track_count=track_count,
             playlist_id=(os.getenv("AUTOSAVER_PLAYLIST_ID") or "").strip() or None,
             playlist_name=os.getenv(
