@@ -1,7 +1,10 @@
 services:
   autosaver:
-    build: .
-    image: spotify-autosaver
+    # Pulls the image published to GHCR by the "Publish Docker image" workflow.
+    # Authenticate first: see "Deploying from GHCR" in the README.
+    # To build locally instead, uncomment `build: .` and run `docker compose up --build`.
+    image: ghcr.io/cfazilleau/spotify-autosaver:latest
+    # build: .
     container_name: spotify-autosaver
     restart: unless-stopped
     env_file:

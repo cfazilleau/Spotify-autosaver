@@ -74,11 +74,57 @@ spotify-autosaver auth
 Provide that token (plus the client id/secret) via the environment and no
 interactive login is ever needed.
 
-### Docker
+### Docker (build locally)
 
 ```bash
 docker compose up -d --build   # uses .env, restarts automatically
 ```
+
+### Deploying from GHCR (published image)
+
+The [`docker-publish.yml`](.github/workflows/docker-publish.yml) workflow builds
+the image on every push to `main` (and on `v*` git tags) and publishes it to the
+**GitHub Container Registry**:
+
+```
+ghcr.io/cfazilleau/spotify-autosaver:latest
+```
+
+**1. Authenticate your local Docker to GHCR.** GHCR requires a login even for
+your own images. Create a [Personal Access Token (classic)](https://github.com/settings/tokens)
+with the **`read:packages`** scope, then:
+
+```bash
+export CR_PAT=ghp_your_token_here
+echo "$CR_PAT" | docker login ghcr.io -u cfazilleau --password-stdin
+```
+
+> If your package is set to **public** (Package settings → Change visibility),
+> you can `docker pull` it without logging in — but a login is still needed to
+> push, and for any private package.
+
+**2. Pull and run.** The bundled [`docker-compose.yml`](docker-compose.yml)
+already points at the GHCR image, so on your local machine just:
+
+```bash
+cp .env.example .env      # fill in credentials + SPOTIFY_REFRESH_TOKEN
+docker compose pull       # fetch the latest published image
+docker compose up -d      # run continuously, auto-restart
+```
+
+Or without compose:
+
+```bash
+docker run -d --name spotify-autosaver --restart unless-stopped \
+  --env-file .env \
+  ghcr.io/cfazilleau/spotify-autosaver:latest run
+```
+
+**Note on registry permissions:** the first publish creates the package as
+**private** and linked to this repo (via the image's
+`org.opencontainers.image.source` label). The `read:packages` PAT above is what
+your local Docker uses to pull it. In CI, publishing uses the automatic
+`GITHUB_TOKEN` — no PAT needed there.
 
 ### GitHub Actions (zero infrastructure)
 

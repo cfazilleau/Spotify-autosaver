@@ -1,5 +1,10 @@
 FROM python:3.12-slim
 
+# Links the GHCR package to this repository (and lets it inherit repo visibility).
+LABEL org.opencontainers.image.source="https://github.com/cfazilleau/spotify-autosaver"
+LABEL org.opencontainers.image.description="Keep a Spotify playlist mirroring your most recently liked songs."
+LABEL org.opencontainers.image.licenses="MIT"
+
 WORKDIR /app
 
 # Install dependencies first for better layer caching.
