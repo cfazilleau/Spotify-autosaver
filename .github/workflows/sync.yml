@@ -1,0 +1,32 @@
+name: Sync liked songs
+
+# Runs the sync on a schedule using GitHub-hosted runners — no server needed.
+# Configure these repository secrets (Settings → Secrets and variables → Actions):
+#   SPOTIPY_CLIENT_ID, SPOTIPY_CLIENT_SECRET, SPOTIFY_REFRESH_TOKEN
+# Generate SPOTIFY_REFRESH_TOKEN once locally with: spotify-autosaver auth
+
+on:
+  schedule:
+    # Every hour, on the hour (UTC). Adjust as you like.
+    - cron: "0 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e .
+      - name: Sync
+        env:
+          SPOTIPY_CLIENT_ID: ${{ secrets.SPOTIPY_CLIENT_ID }}
+          SPOTIPY_CLIENT_SECRET: ${{ secrets.SPOTIPY_CLIENT_SECRET }}
+          SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
+          # Optional overrides:
+          # AUTOSAVER_PLAYLIST_NAME: "Liked Songs (Latest 100)"
+          # AUTOSAVER_TRACK_COUNT: "100"
+        run: spotify-autosaver sync

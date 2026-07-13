@@ -1,0 +1,9 @@
+services:
+  autosaver:
+    build: .
+    image: spotify-autosaver
+    container_name: spotify-autosaver
+    restart: unless-stopped
+    env_file:
+      - .env
+    command: ["run"]
