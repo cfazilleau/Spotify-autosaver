@@ -3,16 +3,20 @@ name: Publish Docker image
 # Builds the image and pushes it to the GitHub Container Registry (GHCR):
 #   ghcr.io/<owner>/spotify-autosaver
 #
+# Triggers on `version/x.y.z` git tags, but only publishes when the tagged
+# commit is also on the `main` branch (i.e. reachable from origin/main). This
+# means a version tag created on a side branch will NOT publish an image.
+#
+#   git switch main && git tag version/1.2.0 && git push origin version/1.2.0
+#
 # Tags produced:
-#   - `latest`            for the default branch
-#   - `main` / branch name
-#   - `vX.Y.Z` + `X.Y`    for semver git tags (e.g. pushing tag v1.2.0)
-#   - `sha-<short>`       for every build
+#   - the version itself  (e.g. `1.2.0`, taken from the part after `version/`)
+#   - `latest`
+#   - `sha-<short>`
 
 on:
   push:
-    branches: [main]
-    tags: ["v*"]
+    tags: ["version/*.*.*"]
   workflow_dispatch: {}
 
 env:
@@ -20,7 +24,31 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Verify the tagged commit is contained in main before building anything.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      on_main: ${{ steps.check.outputs.on_main }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # need full history to test ancestry against main
+
+      - name: Check the tagged commit is on main
+        id: check
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "on_main=true" >> "$GITHUB_OUTPUT"
+            echo "Tagged commit $GITHUB_SHA is on main — proceeding."
+          else
+            echo "on_main=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tagged commit $GITHUB_SHA is not on main — skipping publish."
+          fi
+
   build-and-push:
+    needs: guard
+    if: needs.guard.outputs.on_main == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -41,10 +69,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=match,pattern=version/(.*),group=1
+            type=raw,value=latest
             type=sha
 
       - name: Set up Buildx

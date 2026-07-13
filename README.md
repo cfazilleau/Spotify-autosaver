@@ -137,8 +137,17 @@ docker compose up -d --build   # uses .env, restarts automatically
 ### Deploying from GHCR (published image)
 
 The [`docker-publish.yml`](.github/workflows/docker-publish.yml) workflow builds
-the image on every push to `main` (and on `v*` git tags) and publishes it to the
-**GitHub Container Registry**:
+and publishes the image to the **GitHub Container Registry** when you push a
+`version/x.y.z` tag whose commit is on `main`:
+
+```bash
+git switch main
+git tag version/1.0.0
+git push origin version/1.0.0   # → builds ghcr.io/cfazilleau/spotify-autosaver:1.0.0 + :latest
+```
+
+A version tag on a side branch is ignored (a guard job checks the tagged commit
+is reachable from `main`). The published image:
 
 ```
 ghcr.io/cfazilleau/spotify-autosaver:latest
