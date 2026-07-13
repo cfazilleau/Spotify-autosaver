@@ -10,10 +10,40 @@ import time
 from . import __version__
 from .auth import build_auth_manager, get_client
 from .autosaver import resolve_playlist_id, sync_if_changed, sync_once
-from .config import Config, ConfigError
+from .config import SCOPE, Config, ConfigError
 from .users import UserConfig, load_users
 
 log = logging.getLogger("spotify_autosaver")
+
+
+def _verify_scopes(client, name: str) -> None:
+    """Log the token's actual granted scopes and warn about any that are missing.
+
+    Turns a later opaque 403 into an explicit, up-front message naming the
+    missing scope(s).
+    """
+
+    try:
+        auth = client.auth_manager
+        token = auth.validate_token(auth.cache_handler.get_cached_token())
+        granted = set((token or {}).get("scope", "").split())
+    except Exception:  # noqa: BLE001 — diagnostics must never break startup.
+        log.debug("Could not read granted scopes for account %r.", name, exc_info=True)
+        return
+
+    if not granted:
+        return  # interactive login not completed yet; nothing to check.
+
+    missing = set(SCOPE.split()) - granted
+    if missing:
+        log.error(
+            "Account %r is missing OAuth scope(s): %s. Re-run `spotify-autosaver "
+            "auth` for it to regenerate a token with the current scopes.",
+            name,
+            " ".join(sorted(missing)),
+        )
+    else:
+        log.info("Account %r authorized with scopes: %s", name, " ".join(sorted(granted)))
 
 
 def _client_for(config: Config, user: UserConfig):
@@ -21,9 +51,11 @@ def _client_for(config: Config, user: UserConfig):
 
     # With a stored token no browser is needed; without one, fall back to the
     # interactive/cached login.
-    return get_client(
+    client = get_client(
         config, user.refresh_token, open_browser=user.refresh_token is None
     )
+    _verify_scopes(client, user.name)
+    return client
 
 
 def _configure_logging(verbose: bool) -> None:

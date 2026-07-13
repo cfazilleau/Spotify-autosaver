@@ -49,6 +49,10 @@ def build_auth_manager(
         redirect_uri=config.redirect_uri,
         scope=SCOPE,
         cache_handler=cache_handler,
+        # Always show the consent screen on interactive login so re-auth after a
+        # scope change actually re-grants the new scopes (Spotify otherwise
+        # silently reuses a prior, possibly narrower, grant).
+        show_dialog=True,
         open_browser=open_browser,
     )
 
