@@ -16,7 +16,7 @@ Every time it runs, Autosaver:
 2. Finds — or creates — your target playlist.
 3. Replaces the playlist's contents with those tracks.
 
-That's it. Run it continuously, on a cron, in Docker, or via GitHub Actions.
+That's it. Run it continuously (`run`) or as a one-shot (`sync`), locally or in Docker.
 
 ### Efficient polling (fast loops are fine)
 
@@ -138,16 +138,14 @@ docker compose up -d --build   # uses .env, restarts automatically
 
 The [`docker-publish.yml`](.github/workflows/docker-publish.yml) workflow builds
 and publishes the image to the **GitHub Container Registry** when you push a
-`version/x.y.z` tag whose commit is on `main`:
+`version/x.y.z` tag:
 
 ```bash
-git switch main
 git tag version/1.0.0
 git push origin version/1.0.0   # → builds ghcr.io/cfazilleau/spotify-autosaver:1.0.0 + :latest
 ```
 
-A version tag on a side branch is ignored (a guard job checks the tagged commit
-is reachable from `main`). The published image:
+The published image:
 
 ```
 ghcr.io/cfazilleau/spotify-autosaver:latest
@@ -193,21 +191,6 @@ docker run -d --name spotify-autosaver --restart unless-stopped \
 `org.opencontainers.image.source` label). The `read:packages` PAT above is what
 your local Docker uses to pull it. In CI, publishing uses the automatic
 `GITHUB_TOKEN` — no PAT needed there.
-
-### GitHub Actions (zero infrastructure)
-
-The included [`.github/workflows/sync.yml`](.github/workflows/sync.yml) runs
-`sync` on a schedule using GitHub's runners. Add these repository secrets under
-**Settings → Secrets and variables → Actions**:
-
-| Secret | Value |
-| --- | --- |
-| `SPOTIPY_CLIENT_ID` | your app's client id |
-| `SPOTIPY_CLIENT_SECRET` | your app's client secret |
-| `SPOTIFY_REFRESH_TOKEN` | output of `spotify-autosaver auth` |
-
-Then enable the workflow. It runs hourly (and can be triggered manually via
-**Run workflow**).
 
 ## Configuration reference
 
