@@ -9,7 +9,7 @@ import time
 
 from . import __version__
 from .auth import build_auth_manager, get_client
-from .autosaver import sync_once
+from .autosaver import resolve_playlist_id, sync_if_changed, sync_once
 from .config import Config, ConfigError
 
 log = logging.getLogger("spotify_autosaver")
@@ -32,19 +32,31 @@ def cmd_sync(config: Config) -> int:
 
 
 def cmd_run(config: Config) -> int:
-    """Run forever, syncing every ``interval_seconds``."""
+    """Run forever, polling every ``interval_seconds`` and syncing on change."""
 
     client = get_client(config, open_browser=not config.refresh_token)
     log.info(
-        "Starting autosaver loop: %d track(s) every %d second(s).",
+        "Starting autosaver loop: %d track(s), polling every %d second(s).",
         config.track_count,
         config.interval_seconds,
     )
+
+    # Resolve the playlist once; only re-resolve after an error (e.g. it was
+    # deleted). Each poll is a single cheap API call unless the library changed.
+    playlist_id: str | None = None
+    last_signature = None
     while True:
         try:
-            sync_once(client, config)
+            if playlist_id is None:
+                playlist_id = resolve_playlist_id(client, config)
+            last_signature, _ = sync_if_changed(
+                client, config, playlist_id, last_signature
+            )
         except Exception:  # noqa: BLE001 — keep the loop alive across failures.
-            log.exception("Sync failed; will retry after the interval.")
+            log.exception("Poll failed; will retry after the interval.")
+            # Force a fresh resolve + full sync on the next iteration.
+            playlist_id = None
+            last_signature = None
         time.sleep(config.interval_seconds)
 
 

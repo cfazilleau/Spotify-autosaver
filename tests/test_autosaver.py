@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from spotify_autosaver.autosaver import (
+    fetch_liked_signature,
     fetch_recent_liked_uris,
     find_playlist,
     replace_playlist_items,
     resolve_playlist_id,
+    sync_if_changed,
     sync_once,
 )
 from spotify_autosaver.config import Config
@@ -178,3 +180,36 @@ def test_sync_once_no_liked_songs_is_noop():
     config = make_config()
     assert sync_once(sp, config) == 0
     assert sp.replaced == []
+
+
+def test_fetch_liked_signature_reports_total_and_newest():
+    pages = _linked_pages(
+        [{"total": 42, "items": [_track("spotify:track:newest")]}]
+    )
+    sp = FakeSpotify(saved_pages=pages)
+    assert fetch_liked_signature(sp) == (42, "spotify:track:newest")
+
+
+def test_fetch_liked_signature_handles_empty_library():
+    pages = _linked_pages([{"total": 0, "items": []}])
+    sp = FakeSpotify(saved_pages=pages)
+    assert fetch_liked_signature(sp) == (0, None)
+
+
+def test_sync_if_changed_skips_when_signature_unchanged():
+    pages = _linked_pages(
+        [{"total": 5, "items": [_track(f"spotify:track:{i}") for i in range(5)]}]
+    )
+    sp = FakeSpotify(saved_pages=pages)
+    config = make_config(track_count=5)
+
+    signature, written = sync_if_changed(sp, config, "pid", last_signature=None)
+    assert written == 5
+    assert signature == (5, "spotify:track:0")
+    assert sp.replaced[0][0] == "pid"
+
+    # Same signature on the next poll -> no fetch, no write.
+    signature2, written2 = sync_if_changed(sp, config, "pid", last_signature=signature)
+    assert written2 == 0
+    assert signature2 == signature
+    assert len(sp.replaced) == 1  # unchanged: still only the first write

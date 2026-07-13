@@ -18,6 +18,20 @@ Every time it runs, Autosaver:
 
 That's it. Run it continuously, on a cron, in Docker, or via GitHub Actions.
 
+### Efficient polling (fast loops are fine)
+
+In continuous (`run`) mode the tool is built to poll frequently without
+hammering the API. On each tick it makes **one** cheap request for a lightweight
+fingerprint of your library — `(total liked count, newest track)` — and only
+runs the full fetch-and-replace when that fingerprint changes. The playlist is
+resolved once at startup rather than on every tick.
+
+That fingerprint catches every meaningful change with a single call: liking a
+new song (count rises, newest changes), unliking the top song (newest changes),
+or unliking any other song (count drops). So a **10-second** interval costs just
+6 idle calls/minute and stays well within Spotify's rate limits. (spotipy also
+transparently retries on `429 Too Many Requests`, honouring `Retry-After`.)
+
 ## Setup
 
 ### 1. Create a Spotify app
@@ -50,7 +64,8 @@ See [`.env.example`](.env.example) for every available setting.
 # Run once (great for cron / CI)
 spotify-autosaver sync
 
-# Run continuously, syncing on an interval (default: hourly)
+# Run continuously, polling on an interval and syncing only on change.
+# Set a fast interval with AUTOSAVER_INTERVAL_SECONDS (e.g. 10); default hourly.
 spotify-autosaver run
 
 # First-time login on a machine with a browser; prints a reusable
@@ -155,7 +170,7 @@ Then enable the workflow. It runs hourly (and can be triggered manually via
 | `AUTOSAVER_PLAYLIST_NAME` | `Liked Songs (Latest 100)` | Name to find/create. |
 | `AUTOSAVER_PLAYLIST_PUBLIC` | `false` | Make the created playlist public. |
 | `AUTOSAVER_PLAYLIST_DESCRIPTION` | *(see .env.example)* | Description for created playlist. |
-| `AUTOSAVER_INTERVAL_SECONDS` | `3600` | Loop interval for `run`. |
+| `AUTOSAVER_INTERVAL_SECONDS` | `3600` | Poll interval for `run` (seconds). Short values are safe. |
 
 ## Development
 

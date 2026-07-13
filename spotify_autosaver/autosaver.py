@@ -108,3 +108,52 @@ def sync_once(client: spotipy.Spotify, config: Config) -> int:
     replace_playlist_items(client, playlist_id, uris)
     log.info("Synced %d track(s) into playlist %s", len(uris), playlist_id)
     return len(uris)
+
+
+# A cheap fingerprint of the Liked Songs library: (total_count, newest_uri).
+# Comparing it between polls detects any relevant change with a single API call:
+#   - a new like        -> total increases and the newest track changes
+#   - unliking the top   -> the newest track changes
+#   - unliking any other -> total decreases (newest may be unchanged)
+LibrarySignature = tuple[int | None, str | None]
+
+
+def fetch_liked_signature(client: spotipy.Spotify) -> LibrarySignature:
+    """Return a lightweight ``(total, newest_uri)`` fingerprint in one API call."""
+
+    results = client.current_user_saved_tracks(limit=1)
+    total = results.get("total")
+    items = results.get("items") or []
+    newest = None
+    if items:
+        track = items[0].get("track") or {}
+        newest = track.get("uri")
+    return (total, newest)
+
+
+def sync_if_changed(
+    client: spotipy.Spotify,
+    config: Config,
+    playlist_id: str,
+    last_signature: LibrarySignature | None,
+) -> tuple[LibrarySignature, int]:
+    """Sync only when the library fingerprint changed since ``last_signature``.
+
+    Returns the current signature and the number of tracks written (``0`` when
+    nothing changed, so no full fetch or playlist write happens).
+    """
+
+    signature = fetch_liked_signature(client)
+    if signature == last_signature:
+        log.debug("No change in liked songs; skipping sync.")
+        return signature, 0
+
+    uris = fetch_recent_liked_uris(client, config.track_count)
+    replace_playlist_items(client, playlist_id, uris)
+    log.info(
+        "Change detected (%s) → synced %d track(s) into playlist %s",
+        signature,
+        len(uris),
+        playlist_id,
+    )
+    return signature, len(uris)
