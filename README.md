@@ -221,8 +221,8 @@ ruff check .  # lint
 - The playlist is **replaced** each run, so don't add tracks to it manually —
   they'll be overwritten. Point Autosaver at a dedicated playlist.
 - Local files in your Liked Songs are skipped (they can't be added by URI).
-- OAuth scopes used: `user-library-read`, `playlist-modify-public`,
-  `playlist-modify-private`.
+- OAuth scopes used: `user-library-read`, `playlist-read-private`,
+  `playlist-modify-public`, `playlist-modify-private`.
 
 ## License
 
