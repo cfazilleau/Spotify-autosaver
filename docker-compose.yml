@@ -1,20 +1,29 @@
 services:
   autosaver:
-    # Pulls the image published to GHCR by the "Publish Docker image" workflow.
-    # Authenticate first: see "Deploying from GHCR" in the README.
-    # To build locally instead, uncomment `build: .` and run `docker compose up --build`.
+    # Published by the docker-publish workflow on version/x.y.z tags.
+    # Pin a release (e.g. :1.0.0) instead of :latest for reproducible deploys.
     image: ghcr.io/cfazilleau/spotify-autosaver:latest
-    # build: .
     container_name: spotify-autosaver
     restart: unless-stopped
-    # App credentials (client id/secret, interval) live in .env; per-account
-    # refresh tokens live in the mounted users.json.
+
+    # App credentials (client id/secret) and options like
+    # AUTOSAVER_INTERVAL_SECONDS live in .env; per-account refresh tokens live
+    # in the mounted users.json.
     env_file:
       - .env
     environment:
       AUTOSAVER_USERS_FILE: /app/users.json
+
     volumes:
-      # Edit users.json on the host to add/remove accounts; changes are picked
-      # up on the next container restart.
+      # Edit users.json on the host to add/remove accounts, then:
+      #   docker compose restart
       - ./users.json:/app/users.json:ro
+
     command: ["run"]
+
+    # Keep logs from growing unbounded (the poll loop logs regularly).
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
