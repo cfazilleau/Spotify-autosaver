@@ -11,8 +11,15 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-# OAuth scopes required to read the library and edit playlists.
-SCOPE = "user-library-read playlist-modify-public playlist-modify-private"
+# OAuth scopes required to read the library, list playlists (to find the target
+# by name), and edit playlists. playlist-read-private is needed for the
+# GET /me/playlists lookup — without it Spotify returns 403 "Insufficient scope".
+SCOPE = (
+    "user-library-read "
+    "playlist-read-private "
+    "playlist-modify-public "
+    "playlist-modify-private"
+)
 
 DEFAULT_PLAYLIST_NAME = "Liked Songs (Latest 100)"
 DEFAULT_PLAYLIST_DESCRIPTION = (
