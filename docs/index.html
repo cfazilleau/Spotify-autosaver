@@ -54,16 +54,6 @@
         border: 1px solid var(--border);
         padding: 0.5rem 1rem;
       }
-      input {
-        font: inherit;
-        width: 100%;
-        padding: 0.7rem 0.9rem;
-        border-radius: 10px;
-        border: 1px solid var(--border);
-        background: var(--code);
-        color: var(--fg);
-        margin: 0.4rem 0 1rem;
-      }
       pre {
         background: var(--code);
         border: 1px solid var(--border);
@@ -89,12 +79,6 @@
         runs the autosaver. Nothing is stored on any server — this page runs
         entirely in your browser.</p>
 
-      <!-- Shown when no client id is configured/known -->
-      <section id="setup" class="hidden">
-        <label for="clientId" class="muted">Spotify app Client ID</label>
-        <input id="clientId" placeholder="paste the Client ID you were given" />
-      </section>
-
       <div class="row">
         <button id="login" class="btn-primary">Log in with Spotify</button>
       </div>
@@ -103,8 +87,7 @@
 
       <!-- Shown after a successful authorization -->
       <section id="result" class="hidden">
-        <p>✅ Done! Copy this line and send it to be added to
-          <code>users.json</code>:</p>
+        <p>✅ Done! Copy this line and send it to whoever runs the autosaver:</p>
         <pre id="entry"></pre>
         <div class="row">
           <button id="copy" class="btn-secondary">Copy entry</button>
@@ -113,15 +96,12 @@
         <p class="muted">Treat this token like a password — it can read your
           library and edit your playlists.</p>
       </section>
-
-      <p id="redirectInfo" class="muted"></p>
     </main>
 
     <script>
       // ── Configuration ──────────────────────────────────────────────────
       // Owner: set your Spotify app Client ID here before deploying, so friends
-      // only have to click "Log in". If left as the placeholder, the page asks
-      // for it (also overridable with ?client_id=... in the URL).
+      // only have to click "Log in". (Can also be overridden with ?client_id=.)
       const CONFIGURED_CLIENT_ID = "PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE";
 
       const SCOPES = [
@@ -133,7 +113,6 @@
 
       const AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
       const TOKEN_URL = "https://accounts.spotify.com/api/token";
-      // The redirect URI is this exact page — register it in your Spotify app.
       const REDIRECT_URI = location.origin + location.pathname;
 
       const $ = (id) => document.getElementById(id);
@@ -141,10 +120,6 @@
         $("status").textContent = msg || "";
         $("status").classList.toggle("error", !!isError);
       };
-
-      $("redirectInfo").innerHTML =
-        "Redirect URI to register in the Spotify dashboard:<br><code>" +
-        REDIRECT_URI + "</code>";
 
       // ── Client ID resolution ───────────────────────────────────────────
       function resolveClientId() {
@@ -177,13 +152,11 @@
 
       // ── Step 1: redirect to Spotify ────────────────────────────────────
       async function login() {
-        const clientId = ($("clientId").value.trim() || resolveClientId());
+        const clientId = resolveClientId();
         if (!clientId) {
-          $("setup").classList.remove("hidden");
-          status("Enter your Spotify app Client ID first.", true);
+          status("This page isn't configured yet — ask for the link again.", true);
           return;
         }
-        localStorage.setItem("client_id", clientId);
 
         const verifier = randomString(64);
         const challenge = base64url(await sha256(verifier));
@@ -246,10 +219,10 @@
           );
           return;
         }
-        await showResult(data, clientId);
+        await showResult(data);
       }
 
-      async function showResult(data, clientId) {
+      async function showResult(data) {
         status("");
         let name = "me";
         try {
@@ -274,7 +247,6 @@
         $("entry").textContent = entry;
         $("result").classList.remove("hidden");
         $("login").classList.add("hidden");
-        $("setup").classList.add("hidden");
 
         $("copy").onclick = () => navigator.clipboard.writeText(entry);
         $("copyToken").onclick = () =>
@@ -283,7 +255,6 @@
 
       // ── Wire up ────────────────────────────────────────────────────────
       $("login").onclick = login;
-      if (!resolveClientId()) $("setup").classList.remove("hidden");
       handleRedirect();
     </script>
   </body>

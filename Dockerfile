@@ -15,7 +15,7 @@ COPY pyproject.toml README.md ./
 COPY spotify_autosaver ./spotify_autosaver
 RUN pip install --no-cache-dir .
 
-# Run continuously by default. Provide SPOTIPY_CLIENT_ID via the environment
-# (see .env.example) and mount a users.json with each account's refresh token.
+# Run continuously by default. Mount a settings.json (client id, playlist
+# settings, and each account's refresh token) — see settings.example.json.
 ENTRYPOINT ["spotify-autosaver"]
 CMD ["run"]

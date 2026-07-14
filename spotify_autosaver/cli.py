@@ -11,7 +11,7 @@ from . import __version__
 from .auth import get_client
 from .autosaver import resolve_playlist_id, sync_if_changed, sync_once
 from .config import SCOPE, Config, ConfigError
-from .users import UserConfig, load_users
+from .settings import UserConfig, load_settings
 
 log = logging.getLogger("spotify_autosaver")
 
@@ -62,10 +62,9 @@ def _configure_logging(verbose: bool) -> None:
     )
 
 
-def cmd_sync(config: Config) -> int:
+def cmd_sync(config: Config, users: list[UserConfig]) -> int:
     """Run a single sync for every account and exit."""
 
-    users = load_users(config)
     log.info("Syncing %d account(s).", len(users))
     failures = 0
     for user in users:
@@ -78,7 +77,7 @@ def cmd_sync(config: Config) -> int:
     return 1 if failures else 0
 
 
-def cmd_run(config: Config) -> int:
+def cmd_run(config: Config, users: list[UserConfig]) -> int:
     """Run forever, polling every ``interval_seconds`` and syncing on change.
 
     Each account is polled independently and keeps its own resolved playlist and
@@ -86,7 +85,6 @@ def cmd_run(config: Config) -> int:
     accounts.
     """
 
-    users = load_users(config)
     log.info(
         "Starting autosaver loop: %d account(s), polling every %d second(s).",
         len(users),
@@ -144,13 +142,13 @@ def main(argv: list[str] | None = None) -> int:
     _configure_logging(args.verbose)
 
     try:
-        config = Config.from_env()
+        config, users = load_settings()
     except ConfigError as exc:
         log.error("%s", exc)
         return 2
 
     handlers = {"sync": cmd_sync, "run": cmd_run}
-    return handlers[args.command](config)
+    return handlers[args.command](config, users)
 
 
 if __name__ == "__main__":
