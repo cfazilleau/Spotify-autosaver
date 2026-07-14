@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spotify Autosaver — Get your token</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --card: #181b22;
+        --fg: #e8eaed;
+        --muted: #9aa0aa;
+        --green: #1db954;
+        --green-hover: #1ed760;
+        --border: #2a2e37;
+        --code: #0c0e12;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        display: flex;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+      .card {
+        width: 100%;
+        max-width: 620px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 2rem;
+      }
+      h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+      p { color: var(--muted); line-height: 1.5; }
+      ol { color: var(--muted); line-height: 1.6; padding-left: 1.2rem; }
+      button {
+        font: inherit;
+        font-weight: 600;
+        border: 0;
+        border-radius: 999px;
+        padding: 0.8rem 1.5rem;
+        cursor: pointer;
+      }
+      .btn-primary { background: var(--green); color: #04120a; }
+      .btn-primary:hover { background: var(--green-hover); }
+      .btn-secondary {
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid var(--border);
+        padding: 0.5rem 1rem;
+      }
+      input {
+        font: inherit;
+        width: 100%;
+        padding: 0.7rem 0.9rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--code);
+        color: var(--fg);
+        margin: 0.4rem 0 1rem;
+      }
+      pre {
+        background: var(--code);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 1rem;
+        overflow-x: auto;
+        color: var(--fg);
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+      .muted { color: var(--muted); font-size: 0.9rem; }
+      .hidden { display: none; }
+      .error { color: #ff6b6b; }
+      code { background: var(--code); padding: 0.15em 0.4em; border-radius: 6px; }
+      a { color: var(--green-hover); }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>🎵 Spotify Autosaver</h1>
+      <p>Authorize with Spotify to generate your token, then send it to whoever
+        runs the autosaver. Nothing is stored on any server — this page runs
+        entirely in your browser.</p>
+
+      <!-- Shown when no client id is configured/known -->
+      <section id="setup" class="hidden">
+        <label for="clientId" class="muted">Spotify app Client ID</label>
+        <input id="clientId" placeholder="paste the Client ID you were given" />
+      </section>
+
+      <div class="row">
+        <button id="login" class="btn-primary">Log in with Spotify</button>
+      </div>
+
+      <p id="status" class="muted"></p>
+
+      <!-- Shown after a successful authorization -->
+      <section id="result" class="hidden">
+        <p>✅ Done! Copy this line and send it to be added to
+          <code>users.json</code>:</p>
+        <pre id="entry"></pre>
+        <div class="row">
+          <button id="copy" class="btn-secondary">Copy entry</button>
+          <button id="copyToken" class="btn-secondary">Copy token only</button>
+        </div>
+        <p class="muted">Treat this token like a password — it can read your
+          library and edit your playlists.</p>
+      </section>
+
+      <p id="redirectInfo" class="muted"></p>
+    </main>
+
+    <script>
+      // ── Configuration ──────────────────────────────────────────────────
+      // Owner: set your Spotify app Client ID here before deploying, so friends
+      // only have to click "Log in". If left as the placeholder, the page asks
+      // for it (also overridable with ?client_id=... in the URL).
+      const CONFIGURED_CLIENT_ID = "PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE";
+
+      const SCOPES = [
+        "user-library-read",
+        "playlist-read-private",
+        "playlist-modify-public",
+        "playlist-modify-private",
+      ].join(" ");
+
+      const AUTHORIZE_URL = "https://accounts.spotify.com/authorize";
+      const TOKEN_URL = "https://accounts.spotify.com/api/token";
+      // The redirect URI is this exact page — register it in your Spotify app.
+      const REDIRECT_URI = location.origin + location.pathname;
+
+      const $ = (id) => document.getElementById(id);
+      const status = (msg, isError) => {
+        $("status").textContent = msg || "";
+        $("status").classList.toggle("error", !!isError);
+      };
+
+      $("redirectInfo").innerHTML =
+        "Redirect URI to register in the Spotify dashboard:<br><code>" +
+        REDIRECT_URI + "</code>";
+
+      // ── Client ID resolution ───────────────────────────────────────────
+      function resolveClientId() {
+        const fromUrl = new URLSearchParams(location.search).get("client_id");
+        if (fromUrl) localStorage.setItem("client_id", fromUrl);
+        if (CONFIGURED_CLIENT_ID !== "PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE")
+          return CONFIGURED_CLIENT_ID;
+        return localStorage.getItem("client_id") || "";
+      }
+
+      // ── PKCE helpers ───────────────────────────────────────────────────
+      function randomString(length) {
+        const chars =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+        const values = crypto.getRandomValues(new Uint8Array(length));
+        return Array.from(values, (v) => chars[v % chars.length]).join("");
+      }
+      async function sha256(plain) {
+        return await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(plain)
+        );
+      }
+      function base64url(buffer) {
+        return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+      }
+
+      // ── Step 1: redirect to Spotify ────────────────────────────────────
+      async function login() {
+        const clientId = ($("clientId").value.trim() || resolveClientId());
+        if (!clientId) {
+          $("setup").classList.remove("hidden");
+          status("Enter your Spotify app Client ID first.", true);
+          return;
+        }
+        localStorage.setItem("client_id", clientId);
+
+        const verifier = randomString(64);
+        const challenge = base64url(await sha256(verifier));
+        const state = randomString(16);
+        sessionStorage.setItem("pkce_verifier", verifier);
+        sessionStorage.setItem("pkce_state", state);
+
+        const params = new URLSearchParams({
+          client_id: clientId,
+          response_type: "code",
+          redirect_uri: REDIRECT_URI,
+          code_challenge_method: "S256",
+          code_challenge: challenge,
+          scope: SCOPES,
+          state: state,
+        });
+        location.href = AUTHORIZE_URL + "?" + params.toString();
+      }
+
+      // ── Step 2: handle the redirect back ───────────────────────────────
+      async function handleRedirect() {
+        const params = new URLSearchParams(location.search);
+        const error = params.get("error");
+        if (error) {
+          status("Spotify returned an error: " + error, true);
+          return;
+        }
+        const code = params.get("code");
+        if (!code) return; // fresh visit — nothing to do yet.
+
+        if (params.get("state") !== sessionStorage.getItem("pkce_state")) {
+          status("State mismatch — please try logging in again.", true);
+          return;
+        }
+        const verifier = sessionStorage.getItem("pkce_verifier");
+        const clientId = resolveClientId();
+        status("Exchanging code for a token…");
+
+        const body = new URLSearchParams({
+          client_id: clientId,
+          grant_type: "authorization_code",
+          code: code,
+          redirect_uri: REDIRECT_URI,
+          code_verifier: verifier,
+        });
+        const resp = await fetch(TOKEN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+        const data = await resp.json();
+        // Clean the code out of the URL regardless of outcome.
+        history.replaceState({}, "", REDIRECT_URI);
+
+        if (!resp.ok || !data.refresh_token) {
+          status(
+            "Token exchange failed: " +
+              (data.error_description || data.error || resp.status),
+            true
+          );
+          return;
+        }
+        await showResult(data, clientId);
+      }
+
+      async function showResult(data, clientId) {
+        status("");
+        let name = "me";
+        try {
+          const me = await fetch("https://api.spotify.com/v1/me", {
+            headers: { Authorization: "Bearer " + data.access_token },
+          }).then((r) => r.json());
+          if (me && (me.display_name || me.id)) {
+            name = (me.display_name || me.id)
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, "") || "me";
+          }
+        } catch (_) {
+          /* display name is best-effort */
+        }
+
+        const entry = JSON.stringify(
+          { name: name, refresh_token: data.refresh_token },
+          null,
+          2
+        );
+        $("entry").textContent = entry;
+        $("result").classList.remove("hidden");
+        $("login").classList.add("hidden");
+        $("setup").classList.add("hidden");
+
+        $("copy").onclick = () => navigator.clipboard.writeText(entry);
+        $("copyToken").onclick = () =>
+          navigator.clipboard.writeText(data.refresh_token);
+      }
+
+      // ── Wire up ────────────────────────────────────────────────────────
+      $("login").onclick = login;
+      if (!resolveClientId()) $("setup").classList.remove("hidden");
+      handleRedirect();
+    </script>
+  </body>
+</html>

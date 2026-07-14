@@ -38,8 +38,10 @@ transparently retries on `429 Too Many Requests`, honouring `Retry-After`.)
 
 1. Go to the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
    and create an app.
-2. Copy the **Client ID** and **Client Secret**.
-3. In the app settings, add a **Redirect URI**: `http://127.0.0.1:8888/callback`.
+2. Under **Which API/SDKs are you planning to use?**, tick **Web API**.
+3. Copy the **Client ID** (no client secret is needed — see [Authentication](#authentication)).
+4. Add a **Redirect URI** matching where you'll host the auth page — e.g. your
+   GitHub Pages URL `https://<username>.github.io/Spotify-autosaver/`.
 
 ### 2. Install
 
@@ -52,50 +54,51 @@ pip install -e .
 ### 3. Configure
 
 ```bash
-cp .env.example .env
-# edit .env and fill in SPOTIPY_CLIENT_ID and SPOTIPY_CLIENT_SECRET
+cp .env.example .env             # set SPOTIPY_CLIENT_ID and SPOTIPY_REDIRECT_URI
+cp users.example.json users.json # add each account's refresh token (see below)
 ```
 
 See [`.env.example`](.env.example) for every available setting.
 
+## Authentication
+
+Autosaver uses the **Authorization Code with PKCE** flow, so it needs **no client
+secret** — only the client id. Accounts authorize through a small static web page
+([`docs/index.html`](docs/index.html)) that runs entirely in the browser and
+hands each person a refresh token to drop into [`users.json`](#syncing-multiple-accounts-users-file).
+
+### Host the auth page on GitHub Pages
+
+1. Edit `docs/index.html` and set `CONFIGURED_CLIENT_ID` to your app's Client ID.
+2. In the repo: **Settings → Pages → Build and deployment → Source: Deploy from a
+   branch**, branch `main`, folder **`/docs`**. Save.
+3. Your page goes live at `https://<username>.github.io/Spotify-autosaver/`.
+   Add that exact URL to the app's **Redirect URIs** in the dashboard, and set it
+   as `SPOTIPY_REDIRECT_URI` in `.env`.
+
+Then anyone (you or a friend) opens the page, clicks **Log in with Spotify**,
+approves, and copies the generated `{ "name": ..., "refresh_token": ... }` entry
+to send you. No secret, no server, no local install needed on their end.
+
+> Prefer the terminal? You can still mint a token locally with any PKCE helper,
+> but the hosted page is the intended path — especially for friends.
+
 ## Usage
 
 ```bash
-# Run once (great for cron / CI)
-spotify-autosaver sync
-
-# Run continuously, polling on an interval and syncing only on change.
+# Run continuously: poll on an interval, sync each account only when it changes.
 # Set a fast interval with AUTOSAVER_INTERVAL_SECONDS (e.g. 10); default hourly.
 spotify-autosaver run
 
-# First-time login on a machine with a browser; prints a reusable
-# refresh token for headless deployments.
-spotify-autosaver auth
+# Run a single sync for every account and exit.
+spotify-autosaver sync
 ```
-
-The first `sync`/`run` on a machine with a browser opens a login page and caches
-the token locally (`.cache`). After that it refreshes automatically.
-
-## Running headlessly (server, Docker, CI)
-
-Headless environments have no browser, so authenticate once locally to obtain a
-refresh token:
-
-```bash
-spotify-autosaver auth
-# → prints a users.json entry AND a SPOTIFY_REFRESH_TOKEN= line
-```
-
-Provide that token (plus the client id/secret) and no interactive login is ever
-needed. For a single account you can set `SPOTIFY_REFRESH_TOKEN` in the
-environment; for one or more accounts, use the users file below.
 
 ## Syncing multiple accounts (users file)
 
 To mirror liked songs for several people (e.g. you and friends) from **one**
 deployment, list each account's refresh token in a JSON file — by default
-`users.json`, or set `AUTOSAVER_USERS_FILE`. When this file exists it takes
-precedence over `SPOTIFY_REFRESH_TOKEN`.
+`users.json`, or set `AUTOSAVER_USERS_FILE`.
 
 ```json
 {
@@ -112,10 +115,10 @@ precedence over `SPOTIFY_REFRESH_TOKEN`.
 - Each account gets its **own** playlist in its **own** Spotify account, its own
   change-detection state, and is polled independently. One failing account never
   stops the others.
-- Each friend generates their token by running `spotify-autosaver auth` (on a
-  machine with a browser) and sending you the printed entry, which you paste in.
-- The client id/secret in `.env` are the shared **app** credentials — they stay
-  in the environment; only the per-account tokens go in this file.
+- Each person generates their token via the [auth page](#authentication) and
+  sends you the entry, which you paste in.
+- The `SPOTIPY_CLIENT_ID` in `.env` is the shared **app** identifier; only the
+  per-account tokens go in this file.
 
 > **Heads-up (Spotify limit):** a Spotify app starts in *Development Mode*,
 > capped at **25 users**, and each account's email must be added under
@@ -169,7 +172,7 @@ already points at the GHCR image and mounts `users.json`, so on your local
 machine just:
 
 ```bash
-cp .env.example .env             # fill in the app client id/secret
+cp .env.example .env             # set SPOTIPY_CLIENT_ID + SPOTIPY_REDIRECT_URI
 cp users.example.json users.json # add each account's refresh token
 docker compose pull              # fetch the latest published image
 docker compose up -d             # run continuously, auto-restart
@@ -197,10 +200,8 @@ your local Docker uses to pull it. In CI, publishing uses the automatic
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SPOTIPY_CLIENT_ID` | — | **Required.** Spotify app client id. |
-| `SPOTIPY_CLIENT_SECRET` | — | **Required.** Spotify app client secret. |
-| `SPOTIPY_REDIRECT_URI` | `http://127.0.0.1:8888/callback` | Must match the dashboard. |
-| `SPOTIFY_REFRESH_TOKEN` | — | Enables headless auth when set. |
-| `AUTOSAVER_CACHE_PATH` | `.cache` | Token cache for interactive auth. |
+| `SPOTIPY_REDIRECT_URI` | *(Pages URL)* | Must match the dashboard and the auth page's URL. |
+| `AUTOSAVER_USERS_FILE` | `users.json` | JSON file of accounts to sync. |
 | `AUTOSAVER_TRACK_COUNT` | `100` | How many recent liked songs to mirror. |
 | `AUTOSAVER_PLAYLIST_ID` | — | Target an existing playlist by id. |
 | `AUTOSAVER_PLAYLIST_NAME` | `Liked Songs (Latest 100)` | Name to find/create. |

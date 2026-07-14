@@ -8,7 +8,7 @@ import sys
 import time
 
 from . import __version__
-from .auth import build_auth_manager, get_client
+from .auth import get_client
 from .autosaver import resolve_playlist_id, sync_if_changed, sync_once
 from .config import SCOPE, Config, ConfigError
 from .users import UserConfig, load_users
@@ -37,8 +37,8 @@ def _verify_scopes(client, name: str) -> None:
     missing = set(SCOPE.split()) - granted
     if missing:
         log.error(
-            "Account %r is missing OAuth scope(s): %s. Re-run `spotify-autosaver "
-            "auth` for it to regenerate a token with the current scopes.",
+            "Account %r is missing OAuth scope(s): %s. Re-authorize it with the "
+            "PKCE web app and update its token in the users file.",
             name,
             " ".join(sorted(missing)),
         )
@@ -49,11 +49,7 @@ def _verify_scopes(client, name: str) -> None:
 def _client_for(config: Config, user: UserConfig):
     """Build a Spotify client for one account."""
 
-    # With a stored token no browser is needed; without one, fall back to the
-    # interactive/cached login.
-    client = get_client(
-        config, user.refresh_token, open_browser=user.refresh_token is None
-    )
+    client = get_client(config, user.refresh_token)
     _verify_scopes(client, user.name)
     return client
 
@@ -123,20 +119,6 @@ def cmd_run(config: Config) -> int:
         time.sleep(config.interval_seconds)
 
 
-def cmd_auth(config: Config) -> int:
-    """Interactively authenticate and print a reusable refresh token."""
-
-    auth_manager = build_auth_manager(config, open_browser=True)
-    token_info = auth_manager.get_access_token(as_dict=True)
-    refresh_token = token_info["refresh_token"]
-    print("\nAuthentication successful!\n")
-    print("Add this account to your users file (default users.json):\n")
-    print(f'  {{ "name": "me", "refresh_token": "{refresh_token}" }}\n')
-    print("Or, for a single account, set it in the environment instead:\n")
-    print(f"  SPOTIFY_REFRESH_TOKEN={refresh_token}\n")
-    return 0
-
-
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spotify-autosaver",
@@ -151,11 +133,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("sync", help="Run a single sync and exit (ideal for cron / CI).")
-    sub.add_parser("run", help="Run continuously, syncing on an interval.")
-    sub.add_parser(
-        "auth", help="Interactively log in and print a reusable refresh token."
-    )
+    sub.add_parser("sync", help="Run a single sync for every account and exit.")
+    sub.add_parser("run", help="Run continuously, syncing each account on change.")
     return parser
 
 
@@ -170,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
         log.error("%s", exc)
         return 2
 
-    handlers = {"sync": cmd_sync, "run": cmd_run, "auth": cmd_auth}
+    handlers = {"sync": cmd_sync, "run": cmd_run}
     return handlers[args.command](config)
 
 
