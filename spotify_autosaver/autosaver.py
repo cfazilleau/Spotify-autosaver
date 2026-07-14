@@ -85,11 +85,18 @@ def resolve_playlist_id(client: spotipy.Spotify, config: SyncTarget) -> str:
         log.info("Using existing playlist %r (%s)", config.playlist_name, existing)
         return existing
 
-    created = client.user_playlist_create(
-        user=user_id,
-        name=config.playlist_name,
-        public=config.playlist_public,
-        description=config.playlist_description,
+    # Create via POST /v1/me/playlists. Spotify's Feb 2026 API migration removed
+    # POST /users/{id}/playlists for Development Mode apps — it treats any
+    # non-/me/ user-scoped write as "for another user" and returns 403. spotipy's
+    # user_playlist_create() still targets the old path, so call /me/playlists
+    # directly.
+    created = client._post(
+        "me/playlists",
+        payload={
+            "name": config.playlist_name,
+            "public": config.playlist_public,
+            "description": config.playlist_description,
+        },
     )
     log.info("Created playlist %r (%s)", config.playlist_name, created["id"])
     return created["id"]

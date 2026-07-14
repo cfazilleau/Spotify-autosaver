@@ -70,10 +70,13 @@ class FakeSpotify:
         return {"id": self._user_id}
 
     # --- playlist mutations ----------------------------------------------
-    def user_playlist_create(self, user, name, public, description):
-        pid = "created123"
-        self.created.append({"user": user, "name": name, "public": public})
-        return {"id": pid}
+    def _post(self, url, payload=None):
+        # The playlist is created via POST /me/playlists (Spotify Feb 2026 API).
+        assert url == "me/playlists", f"unexpected _post to {url!r}"
+        self.created.append(
+            {"name": payload["name"], "public": payload["public"]}
+        )
+        return {"id": "created123"}
 
     def playlist_replace_items(self, playlist_id, uris):
         self.replaced.append((playlist_id, list(uris)))
