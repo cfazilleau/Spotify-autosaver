@@ -1,22 +1,22 @@
 services:
   autosaver:
     # Published by the docker-publish workflow on version/x.y.z tags.
-    # Pin a release (e.g. :1.0.0) instead of :latest for reproducible deploys.
+    # Pin a release (e.g. :2.0.0) instead of :latest for reproducible deploys.
     image: ghcr.io/cfazilleau/spotify-autosaver:latest
     container_name: spotify-autosaver
     restart: unless-stopped
 
-    # App credentials (client id/secret) and options like
-    # AUTOSAVER_INTERVAL_SECONDS live in .env; per-account refresh tokens live
-    # in the mounted users.json.
-    env_file:
-      - .env
     environment:
+      # Your Spotify app Client ID — not a secret. Replace the placeholder.
+      SPOTIPY_CLIENT_ID: your_client_id_here
       AUTOSAVER_USERS_FILE: /app/users.json
+      # Optional overrides:
+      # AUTOSAVER_INTERVAL_SECONDS: "10"      # fast polling is fine
+      # AUTOSAVER_PLAYLIST_NAME: "Liked Songs (Latest 100)"
 
     volumes:
-      # Edit users.json on the host to add/remove accounts, then:
-      #   docker compose restart
+      # Per-account refresh tokens. Edit on the host to add/remove accounts,
+      # then: docker compose restart
       - ./users.json:/app/users.json:ro
 
     command: ["run"]

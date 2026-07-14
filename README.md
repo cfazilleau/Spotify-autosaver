@@ -133,8 +133,10 @@ Copy [`users.example.json`](users.example.json) to `users.json` to get started.
 
 ### Docker (build locally)
 
+Set your Client ID in `docker-compose.yml`, then:
+
 ```bash
-docker compose up -d --build   # uses .env, restarts automatically
+docker compose up -d --build   # restarts automatically
 ```
 
 ### Deploying from GHCR (published image)
@@ -168,11 +170,10 @@ echo "$CR_PAT" | docker login ghcr.io -u cfazilleau --password-stdin
 > push, and for any private package.
 
 **2. Pull and run.** The bundled [`docker-compose.yml`](docker-compose.yml)
-already points at the GHCR image and mounts `users.json`, so on your local
-machine just:
+points at the GHCR image and mounts `users.json`. Set your Client ID in it
+(`SPOTIPY_CLIENT_ID`), then:
 
 ```bash
-cp .env.example .env             # set SPOTIPY_CLIENT_ID + SPOTIPY_REDIRECT_URI
 cp users.example.json users.json # add each account's refresh token
 docker compose pull              # fetch the latest published image
 docker compose up -d             # run continuously, auto-restart
@@ -183,7 +184,7 @@ Add or remove friends by editing `users.json` and running
 
 ```bash
 docker run -d --name spotify-autosaver --restart unless-stopped \
-  --env-file .env \
+  -e SPOTIPY_CLIENT_ID=your_client_id \
   -e AUTOSAVER_USERS_FILE=/app/users.json \
   -v "$PWD/users.json:/app/users.json:ro" \
   ghcr.io/cfazilleau/spotify-autosaver:latest run
