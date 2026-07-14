@@ -15,7 +15,7 @@ COPY pyproject.toml README.md ./
 COPY spotify_autosaver ./spotify_autosaver
 RUN pip install --no-cache-dir .
 
-# Run continuously by default. Provide credentials via environment variables
-# (see .env.example). Headless auth requires SPOTIFY_REFRESH_TOKEN.
+# Run continuously by default. Provide SPOTIPY_CLIENT_ID via the environment
+# (see .env.example) and mount a users.json with each account's refresh token.
 ENTRYPOINT ["spotify-autosaver"]
 CMD ["run"]

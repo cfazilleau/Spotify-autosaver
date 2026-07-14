@@ -17,10 +17,7 @@ from spotify_autosaver.config import Config
 def make_config(**overrides) -> Config:
     base = dict(
         client_id="id",
-        client_secret="secret",
-        redirect_uri="http://127.0.0.1:8888/callback",
-        refresh_token=None,
-        cache_path=".cache",
+        redirect_uri="https://example.github.io/app/",
         users_file="users.json",
         track_count=100,
         playlist_id=None,

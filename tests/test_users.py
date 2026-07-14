@@ -13,10 +13,7 @@ from spotify_autosaver.users import load_users
 def make_config(tmp_path, **overrides) -> Config:
     base = dict(
         client_id="id",
-        client_secret="secret",
-        redirect_uri="http://127.0.0.1:8888/callback",
-        refresh_token=None,
-        cache_path=".cache",
+        redirect_uri="https://example.github.io/app/",
         users_file=str(tmp_path / "users.json"),
         track_count=100,
         playlist_id=None,
@@ -99,12 +96,8 @@ def test_invalid_json_is_an_error(tmp_path):
         load_users(make_config(tmp_path))
 
 
-def test_falls_back_to_env_when_no_file(tmp_path):
+def test_missing_users_file_is_an_error(tmp_path):
     # users_file points at a path that doesn't exist.
-    config = make_config(tmp_path, refresh_token="env-token", playlist_id="pl")
-    users = load_users(config)
-    assert len(users) == 1
-    assert users[0].name == "default"
-    assert users[0].refresh_token == "env-token"
-    # In single-user env fallback the global playlist id IS used.
-    assert users[0].playlist_id == "pl"
+    config = make_config(tmp_path)  # no users.json written
+    with pytest.raises(ConfigError, match="not found"):
+        load_users(config)

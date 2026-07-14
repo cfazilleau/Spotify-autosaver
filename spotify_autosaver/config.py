@@ -53,15 +53,13 @@ def _get_int(name: str, default: int) -> int:
 class Config:
     """Runtime configuration for the autosaver."""
 
+    # Spotify app client id. No client secret is needed: accounts authorize via
+    # the PKCE web app, and refresh tokens are refreshed with the client id
+    # alone. redirect_uri only has to match the web app's registered URI.
     client_id: str
-    client_secret: str
     redirect_uri: str
 
-    # Auth: either a stored refresh token (headless / CI) or a cache file that
-    # spotipy manages after an interactive login. For multiple accounts, list
-    # their tokens in the users file (see ``users_file``) instead.
-    refresh_token: str | None
-    cache_path: str
+    # JSON file listing the accounts (and their refresh tokens) to sync.
     users_file: str
 
     # What to sync.
@@ -75,37 +73,21 @@ class Config:
     interval_seconds: int
 
     @classmethod
-    def from_env(cls, *, require_secrets: bool = True) -> Config:
+    def from_env(cls, *, require_client_id: bool = True) -> Config:
         """Build a :class:`Config` from the process environment.
 
-        Loads a ``.env`` file if present. When ``require_secrets`` is true the
-        Spotify client credentials must be set, otherwise a :class:`ConfigError`
-        is raised.
+        Loads a ``.env`` file if present. When ``require_client_id`` is true the
+        Spotify client id must be set, otherwise a :class:`ConfigError` is raised.
         """
 
         load_dotenv()
 
         client_id = os.getenv("SPOTIPY_CLIENT_ID", "").strip()
-        client_secret = os.getenv("SPOTIPY_CLIENT_SECRET", "").strip()
-        redirect_uri = os.getenv(
-            "SPOTIPY_REDIRECT_URI", "http://127.0.0.1:8888/callback"
-        ).strip()
-
-        if require_secrets:
-            missing = [
-                name
-                for name, value in (
-                    ("SPOTIPY_CLIENT_ID", client_id),
-                    ("SPOTIPY_CLIENT_SECRET", client_secret),
-                )
-                if not value
-            ]
-            if missing:
-                raise ConfigError(
-                    "Missing required environment variable(s): "
-                    + ", ".join(missing)
-                    + ". See .env.example for setup instructions."
-                )
+        if require_client_id and not client_id:
+            raise ConfigError(
+                "Missing required environment variable SPOTIPY_CLIENT_ID. "
+                "See .env.example for setup instructions."
+            )
 
         track_count = _get_int("AUTOSAVER_TRACK_COUNT", 100)
         if track_count < 1:
@@ -113,10 +95,10 @@ class Config:
 
         return cls(
             client_id=client_id,
-            client_secret=client_secret,
-            redirect_uri=redirect_uri,
-            refresh_token=(os.getenv("SPOTIFY_REFRESH_TOKEN") or "").strip() or None,
-            cache_path=os.getenv("AUTOSAVER_CACHE_PATH", ".cache").strip() or ".cache",
+            redirect_uri=os.getenv(
+                "SPOTIPY_REDIRECT_URI",
+                "https://cfazilleau.github.io/Spotify-autosaver/",
+            ).strip(),
             users_file=os.getenv("AUTOSAVER_USERS_FILE", "users.json").strip()
             or "users.json",
             track_count=track_count,
