@@ -64,7 +64,6 @@ cp settings.example.json settings.json
 ```json
 {
   "client_id": "your_spotify_app_client_id",
-  "redirect_uri": "https://<username>.github.io/Spotify-autosaver/",
   "track_count": 100,
   "playlist_name": "Liked Songs (Latest 100)",
   "playlist_public": false,
@@ -104,8 +103,8 @@ hands each person a refresh token to paste into `settings.json`.
 2. In the repo: **Settings → Pages → Build and deployment → Source: Deploy from a
    branch**, branch `main`, folder **`/docs`**. Save.
 3. Your page goes live at `https://<username>.github.io/Spotify-autosaver/`.
-   Add that exact URL to the app's **Redirect URIs** in the dashboard, and use it
-   as `redirect_uri` in `settings.json`.
+   Add that exact URL to the app's **Redirect URIs** in the dashboard (the page
+   uses its own URL as the redirect — nothing to configure in `settings.json`).
 
 Then anyone (you or a friend) opens the page, clicks **Log in with Spotify**,
 approves, and copies the generated `{ "name": ..., "refresh_token": ... }` entry
@@ -201,7 +200,6 @@ can also be set on an individual entry in `users` to override the global value.
 | Key | Default | Description |
 | --- | --- | --- |
 | `client_id` | — | **Required.** Spotify app client id. |
-| `redirect_uri` | *(Pages URL)* | Must match the dashboard and the auth page's URL. |
 | `users` | — | **Required.** List of accounts; each needs `refresh_token`, optional `name`. |
 | `track_count` | `100` | How many recent liked songs to mirror. *(per-account)* |
 | `playlist_name` | `Liked Songs (Latest 100)` | Playlist to find/create. *(per-account)* |

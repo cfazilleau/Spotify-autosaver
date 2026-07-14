@@ -19,7 +19,6 @@ SCOPE = (
     "playlist-modify-private"
 )
 
-DEFAULT_REDIRECT_URI = "https://cfazilleau.github.io/Spotify-autosaver/"
 DEFAULT_PLAYLIST_NAME = "Liked Songs (Latest 100)"
 DEFAULT_PLAYLIST_DESCRIPTION = (
     "Automatically maintained by Spotify Autosaver — mirrors my most recently "
@@ -50,9 +49,9 @@ class Config:
     """
 
     # Spotify app client id. No client secret is needed: accounts authorize via
-    # the PKCE web app, and tokens refresh with the client id alone.
+    # the PKCE web app, and tokens refresh with the client id alone. (The
+    # redirect URI is the web app's own URL — it isn't needed here.)
     client_id: str
-    redirect_uri: str
 
     # Defaults applied to accounts that don't override them.
     track_count: int
@@ -79,7 +78,6 @@ class Config:
 
         return cls(
             client_id=client_id,
-            redirect_uri=str(data.get("redirect_uri") or DEFAULT_REDIRECT_URI).strip(),
             track_count=track_count,
             playlist_name=str(data.get("playlist_name") or DEFAULT_PLAYLIST_NAME).strip(),
             playlist_public=bool(data.get("playlist_public", False)),

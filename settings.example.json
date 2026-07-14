@@ -1,6 +1,5 @@
 {
   "client_id": "YOUR_SPOTIFY_APP_CLIENT_ID",
-  "redirect_uri": "https://cfazilleau.github.io/Spotify-autosaver/",
 
   "track_count": 100,
   "playlist_name": "Liked Songs (Latest 100)",
