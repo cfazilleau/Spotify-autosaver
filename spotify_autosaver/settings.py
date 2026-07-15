@@ -13,7 +13,13 @@ import json
 import os
 from dataclasses import dataclass
 
-from .config import Config, ConfigError
+from .config import (
+    DEFAULT_PLAYLIST_DESCRIPTION,
+    DEFAULT_PLAYLIST_NAME,
+    DEFAULT_TRACK_COUNT,
+    Config,
+    ConfigError,
+)
 
 DEFAULT_SETTINGS_FILE = "settings.json"
 
@@ -43,7 +49,7 @@ class UserConfig:
     playlist_description: str
 
 
-def _user_from_entry(entry: dict, index: int, config: Config) -> UserConfig:
+def _user_from_entry(entry: dict, index: int) -> UserConfig:
     where = f"users[{index}]"
     if not isinstance(entry, dict):
         raise ConfigError(f"{where} must be a JSON object")
@@ -53,7 +59,7 @@ def _user_from_entry(entry: dict, index: int, config: Config) -> UserConfig:
         raise ConfigError(f"{where} is missing a non-empty 'refresh_token'")
 
     try:
-        track_count = int(entry.get("track_count", config.track_count))
+        track_count = int(entry.get("track_count", DEFAULT_TRACK_COUNT))
     except (TypeError, ValueError) as exc:
         raise ConfigError(f"{where} has an invalid 'track_count'") from exc
     if track_count < 1:
@@ -63,13 +69,11 @@ def _user_from_entry(entry: dict, index: int, config: Config) -> UserConfig:
         name=str(entry.get("name") or f"user{index + 1}"),
         refresh_token=token,
         track_count=track_count,
-        # A playlist id is account-specific, so it is never inherited from the
-        # global default — only an explicit per-account value is used.
         playlist_id=(entry.get("playlist_id") or None),
-        playlist_name=str(entry.get("playlist_name") or config.playlist_name),
-        playlist_public=bool(entry.get("playlist_public", config.playlist_public)),
+        playlist_name=str(entry.get("playlist_name") or DEFAULT_PLAYLIST_NAME),
+        playlist_public=bool(entry.get("playlist_public", False)),
         playlist_description=str(
-            entry.get("playlist_description") or config.playlist_description
+            entry.get("playlist_description") or DEFAULT_PLAYLIST_DESCRIPTION
         ),
     )
 
@@ -99,5 +103,5 @@ def load_settings(path: str | None = None) -> tuple[Config, list[UserConfig]]:
     if not entries:
         raise ConfigError(f"{path} has no accounts — add at least one to 'users'.")
 
-    users = [_user_from_entry(entry, i, config) for i, entry in enumerate(entries)]
+    users = [_user_from_entry(entry, i) for i, entry in enumerate(entries)]
     return config, users

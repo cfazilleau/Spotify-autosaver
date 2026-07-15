@@ -43,23 +43,17 @@ def _as_int(value: object, default: int, field: str) -> int:
 
 @dataclass
 class Config:
-    """Global settings shared by every account.
+    """Global settings — the app identity and the polling loop.
 
-    Also the fallback defaults for per-account fields that an entry omits.
+    Everything else (playlist name, track count, public/private, …) is
+    per-account and lives on each entry in the users list.
     """
 
     # Spotify app client id. No client secret is needed: accounts authorize via
-    # the PKCE web app, and tokens refresh with the client id alone. (The
-    # redirect URI is the web app's own URL — it isn't needed here.)
+    # the PKCE web app, and tokens refresh with the client id alone.
     client_id: str
 
-    # Defaults applied to accounts that don't override them.
-    track_count: int
-    playlist_name: str
-    playlist_public: bool
-    playlist_description: str
-
-    # How the continuous loop behaves.
+    # How often the continuous loop polls (seconds) — one loop covers all accounts.
     interval_seconds: int
 
     @classmethod
@@ -72,18 +66,8 @@ class Config:
                 "Settings file is missing 'client_id'. See settings.example.json."
             )
 
-        track_count = _as_int(data.get("track_count"), DEFAULT_TRACK_COUNT, "track_count")
-        if track_count < 1:
-            raise ConfigError("'track_count' must be a positive integer")
-
         return cls(
             client_id=client_id,
-            track_count=track_count,
-            playlist_name=str(data.get("playlist_name") or DEFAULT_PLAYLIST_NAME).strip(),
-            playlist_public=bool(data.get("playlist_public", False)),
-            playlist_description=str(
-                data.get("playlist_description") or DEFAULT_PLAYLIST_DESCRIPTION
-            ).strip(),
             interval_seconds=_as_int(
                 data.get("interval_seconds"), DEFAULT_INTERVAL_SECONDS, "interval_seconds"
             ),

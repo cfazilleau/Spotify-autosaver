@@ -1,21 +1,20 @@
 {
   "client_id": "YOUR_SPOTIFY_APP_CLIENT_ID",
-
-  "track_count": 100,
-  "playlist_name": "Liked Songs (Latest 100)",
-  "playlist_public": false,
   "interval_seconds": 10,
 
   "users": [
     {
       "name": "me",
-      "refresh_token": "PASTE_YOUR_REFRESH_TOKEN_HERE"
+      "refresh_token": "PASTE_YOUR_REFRESH_TOKEN_HERE",
+      "track_count": 100,
+      "playlist_name": "Liked Songs (Latest 100)",
+      "playlist_public": false
     },
     {
       "name": "a-friend",
       "refresh_token": "PASTE_THEIR_REFRESH_TOKEN_HERE",
-      "playlist_name": "Friend's latest 100",
-      "track_count": 50
+      "track_count": 50,
+      "playlist_name": "Friend's latest 50"
     }
   ]
 }

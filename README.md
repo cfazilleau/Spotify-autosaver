@@ -99,17 +99,23 @@ hands each person a refresh token to paste into `settings.json`.
 
 ### Host the auth page on GitHub Pages
 
-1. Edit `docs/index.html` and set `CONFIGURED_CLIENT_ID` to your app's Client ID.
-2. In the repo: **Settings → Pages → Build and deployment → Source: Deploy from a
-   branch**, branch `main`, folder **`/docs`**. Save.
-3. Your page goes live at `https://<username>.github.io/Spotify-autosaver/`.
-   Add that exact URL to the app's **Redirect URIs** in the dashboard (the page
-   uses its own URL as the redirect — nothing to configure in `settings.json`).
+The Client ID isn't committed — it's injected at deploy time by the
+[`pages.yml`](.github/workflows/pages.yml) workflow.
+
+1. Add a repository **variable** with your Client ID:
+   **Settings → Secrets and variables → Actions → Variables → New variable**,
+   name `SPOTIFY_CLIENT_ID`. (It's public info, so a variable is the right fit;
+   a secret works too — flip `vars` to `secrets` in the workflow.)
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+3. Push to `main` (or run the workflow manually). Your page goes live at
+   `https://<username>.github.io/Spotify-autosaver/`. Add that exact URL to the
+   app's **Redirect URIs** in the dashboard (the page uses its own URL as the
+   redirect — nothing to configure in `settings.json`).
 
 Then anyone (you or a friend) opens the page, clicks **Log in with Spotify**,
-approves, and copies the generated `{ "name": ..., "refresh_token": ... }` entry
-to send you. You paste it into the `users` list. No secret, no server, no local
-install needed on their end.
+approves, **sets their playlist name / track count / public toggle** right on the
+page, and copies the generated entry to send you. You paste it into the `users`
+list. No secret, no server, no local install needed on their end.
 
 > **Heads-up (Spotify limit):** a Spotify app starts in *Development Mode*,
 > capped at **25 users**, and each account's email must be added under

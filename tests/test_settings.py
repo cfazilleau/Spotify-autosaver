@@ -29,18 +29,18 @@ def test_globals_and_defaults(tmp_path):
 
     assert config.client_id == "abc"
     assert config.interval_seconds == 10
-    assert config.track_count == 100  # default
-    assert config.playlist_name == "Liked Songs (Latest 100)"  # default
     assert len(users) == 1 and users[0].name == "me"
+    # Per-account settings fall back to code defaults when omitted.
+    assert users[0].track_count == 100
+    assert users[0].playlist_name == "Liked Songs (Latest 100)"
+    assert users[0].playlist_public is False
 
 
-def test_per_account_overrides_and_inheritance(tmp_path):
+def test_per_account_settings(tmp_path):
     path = write_settings(
         tmp_path,
         {
             "client_id": "abc",
-            "track_count": 100,
-            "playlist_name": "Global",
             "users": [
                 {"name": "me", "refresh_token": "t1"},
                 {"name": "alex", "refresh_token": "t2", "track_count": 50,
@@ -50,8 +50,10 @@ def test_per_account_overrides_and_inheritance(tmp_path):
     )
     _, users = load_settings(path)
 
-    assert users[0].track_count == 100 and users[0].playlist_name == "Global"
-    assert users[1].track_count == 50 and users[1].playlist_name == "Alex 50"
+    assert users[0].track_count == 100  # default
+    assert users[0].playlist_name == "Liked Songs (Latest 100)"  # default
+    assert users[1].track_count == 50  # per-account
+    assert users[1].playlist_name == "Alex 50"
     assert users[1].playlist_public is True
 
 

@@ -54,6 +54,26 @@
         border: 1px solid var(--border);
         padding: 0.5rem 1rem;
       }
+      .field { margin: 0.7rem 0; }
+      label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+      input {
+        font: inherit;
+        width: 100%;
+        padding: 0.55rem 0.7rem;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--code);
+        color: var(--fg);
+      }
+      input[type="checkbox"] { width: auto; padding: 0; }
+      label.check {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--fg);
+        margin: 0.9rem 0;
+      }
+      label.check span { color: var(--fg); }
       pre {
         background: var(--code);
         border: 1px solid var(--border);
@@ -87,7 +107,26 @@
 
       <!-- Shown after a successful authorization -->
       <section id="result" class="hidden">
-        <p>✅ Done! Copy this line and send it to whoever runs the autosaver:</p>
+        <p>✅ Authorized! Adjust your settings if you like, then send this to
+          whoever runs the autosaver:</p>
+
+        <div class="field">
+          <label for="f_label">Label (just a name for your entry)</label>
+          <input id="f_label" />
+        </div>
+        <div class="field">
+          <label for="f_playlist">Playlist name</label>
+          <input id="f_playlist" />
+        </div>
+        <div class="field">
+          <label for="f_track">How many recent liked songs to mirror</label>
+          <input id="f_track" type="number" min="1" step="1" />
+        </div>
+        <label class="check">
+          <input id="f_public" type="checkbox" />
+          <span>Make the playlist public</span>
+        </label>
+
         <pre id="entry"></pre>
         <div class="row">
           <button id="copy" class="btn-secondary">Copy entry</button>
@@ -100,9 +139,10 @@
 
     <script>
       // ── Configuration ──────────────────────────────────────────────────
-      // Owner: set your Spotify app Client ID here before deploying, so friends
-      // only have to click "Log in". (Can also be overridden with ?client_id=.)
-      const CONFIGURED_CLIENT_ID = "PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE";
+      // Injected at deploy time by .github/workflows/pages.yml from the
+      // SPOTIFY_CLIENT_ID repository variable — never committed. (For local
+      // testing you can also pass ?client_id=... in the URL.)
+      const CONFIGURED_CLIENT_ID = "__SPOTIFY_CLIENT_ID__";
 
       const SCOPES = [
         "user-library-read",
@@ -125,8 +165,10 @@
       function resolveClientId() {
         const fromUrl = new URLSearchParams(location.search).get("client_id");
         if (fromUrl) localStorage.setItem("client_id", fromUrl);
-        if (CONFIGURED_CLIENT_ID !== "PASTE_YOUR_SPOTIFY_CLIENT_ID_HERE")
-          return CONFIGURED_CLIENT_ID;
+        // Rebuild the placeholder in pieces so the deploy-time sed (which
+        // replaces the literal above) can't rewrite this comparison too.
+        const placeholder = "__SPOTIFY" + "_CLIENT_ID__";
+        if (CONFIGURED_CLIENT_ID !== placeholder) return CONFIGURED_CLIENT_ID;
         return localStorage.getItem("client_id") || "";
       }
 
@@ -222,8 +264,23 @@
         await showResult(data);
       }
 
+      let REFRESH_TOKEN = "";
+
+      // Build the settings.json entry live from the form fields.
+      function renderEntry() {
+        const entry = { name: $("f_label").value.trim() || "me", refresh_token: REFRESH_TOKEN };
+        const track = parseInt($("f_track").value, 10);
+        if (!isNaN(track) && track > 0) entry.track_count = track;
+        const playlist = $("f_playlist").value.trim();
+        if (playlist) entry.playlist_name = playlist;
+        entry.playlist_public = $("f_public").checked;
+        $("entry").textContent = JSON.stringify(entry, null, 2);
+      }
+
       async function showResult(data) {
         status("");
+        REFRESH_TOKEN = data.refresh_token;
+
         let name = "me";
         try {
           const me = await fetch("https://api.spotify.com/v1/me", {
@@ -239,18 +296,25 @@
           /* display name is best-effort */
         }
 
-        const entry = JSON.stringify(
-          { name: name, refresh_token: data.refresh_token },
-          null,
-          2
-        );
-        $("entry").textContent = entry;
+        // Prefill with the defaults the autosaver would otherwise use.
+        $("f_label").value = name;
+        $("f_playlist").value = "Liked Songs (Latest 100)";
+        $("f_track").value = "100";
+        $("f_public").checked = false;
+
+        for (const id of ["f_label", "f_playlist", "f_track"]) {
+          $(id).addEventListener("input", renderEntry);
+        }
+        $("f_public").addEventListener("change", renderEntry);
+        renderEntry();
+
         $("result").classList.remove("hidden");
         $("login").classList.add("hidden");
 
-        $("copy").onclick = () => navigator.clipboard.writeText(entry);
+        $("copy").onclick = () =>
+          navigator.clipboard.writeText($("entry").textContent);
         $("copyToken").onclick = () =>
-          navigator.clipboard.writeText(data.refresh_token);
+          navigator.clipboard.writeText(REFRESH_TOKEN);
       }
 
       // ── Wire up ────────────────────────────────────────────────────────
