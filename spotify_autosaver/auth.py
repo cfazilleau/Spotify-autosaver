@@ -14,6 +14,12 @@ from spotipy.oauth2 import SpotifyPKCE
 
 from .config import SCOPE, Config
 
+# SpotifyPKCE requires a redirect_uri, but it is only used to build the
+# authorization URL during interactive login — never on the refresh path, which
+# is all we do here. The real redirect URI lives in the web app. This placeholder
+# just satisfies the constructor.
+_UNUSED_REDIRECT_URI = "http://127.0.0.1/callback"
+
 
 def get_client(config: Config, refresh_token: str) -> spotipy.Spotify:
     """Return an authenticated client for the account owning ``refresh_token``."""
@@ -31,7 +37,7 @@ def get_client(config: Config, refresh_token: str) -> spotipy.Spotify:
     )
     auth_manager = SpotifyPKCE(
         client_id=config.client_id,
-        redirect_uri=config.redirect_uri,
+        redirect_uri=_UNUSED_REDIRECT_URI,
         scope=SCOPE,
         cache_handler=cache_handler,
         open_browser=False,

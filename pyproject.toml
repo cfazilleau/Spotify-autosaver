@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spotify-autosaver"
-version = "2.0.1"
+version = "2.2.0"
 description = "Keep a Spotify playlist mirroring your most recently liked songs."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,7 +13,6 @@ authors = [{ name = "Clément Fazilleau" }]
 keywords = ["spotify", "playlist", "automation", "liked-songs"]
 dependencies = [
     "spotipy>=2.23.0",
-    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]

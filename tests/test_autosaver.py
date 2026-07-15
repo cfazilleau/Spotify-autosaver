@@ -11,23 +11,23 @@ from spotify_autosaver.autosaver import (
     sync_if_changed,
     sync_once,
 )
-from spotify_autosaver.config import Config
+from spotify_autosaver.settings import UserConfig
 
 
-def make_config(**overrides) -> Config:
+def make_config(**overrides) -> UserConfig:
+    """A sync target (account). The sync functions operate on a UserConfig."""
+
     base = dict(
-        client_id="id",
-        redirect_uri="https://example.github.io/app/",
-        users_file="users.json",
+        name="me",
+        refresh_token="tok",
         track_count=100,
         playlist_id=None,
         playlist_name="Liked Songs (Latest 100)",
         playlist_public=False,
         playlist_description="desc",
-        interval_seconds=3600,
     )
     base.update(overrides)
-    return Config(**base)
+    return UserConfig(**base)
 
 
 def _track(uri: str, is_local: bool = False) -> dict:
