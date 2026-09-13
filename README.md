@@ -53,55 +53,22 @@ pip install -e .
 
 ### 3. Configure
 
-```bash
-cp .env.example .env             # set SPOTIPY_CLIENT_ID and SPOTIPY_REDIRECT_URI
-cp users.example.json users.json # add each account's refresh token (see below)
-```
-
-See [`.env.example`](.env.example) for every available setting.
-
-## Authentication
-
-Autosaver uses the **Authorization Code with PKCE** flow, so it needs **no client
-secret** — only the client id. Accounts authorize through a small static web page
-([`docs/index.html`](docs/index.html)) that runs entirely in the browser and
-hands each person a refresh token to drop into [`users.json`](#syncing-multiple-accounts-users-file).
-
-### Host the auth page on GitHub Pages
-
-1. Edit `docs/index.html` and set `CONFIGURED_CLIENT_ID` to your app's Client ID.
-2. In the repo: **Settings → Pages → Build and deployment → Source: Deploy from a
-   branch**, branch `main`, folder **`/docs`**. Save.
-3. Your page goes live at `https://<username>.github.io/Spotify-autosaver/`.
-   Add that exact URL to the app's **Redirect URIs** in the dashboard, and set it
-   as `SPOTIPY_REDIRECT_URI` in `.env`.
-
-Then anyone (you or a friend) opens the page, clicks **Log in with Spotify**,
-approves, and copies the generated `{ "name": ..., "refresh_token": ... }` entry
-to send you. No secret, no server, no local install needed on their end.
-
-> Prefer the terminal? You can still mint a token locally with any PKCE helper,
-> but the hosted page is the intended path — especially for friends.
-
-## Usage
+All configuration lives in a single **`settings.json`** — client id, global
+playlist settings, and the list of accounts to sync. Copy the example and fill
+it in:
 
 ```bash
-# Run continuously: poll on an interval, sync each account only when it changes.
-# Set a fast interval with AUTOSAVER_INTERVAL_SECONDS (e.g. 10); default hourly.
-spotify-autosaver run
-
-# Run a single sync for every account and exit.
-spotify-autosaver sync
+cp settings.example.json settings.json
 ```
-
-## Syncing multiple accounts (users file)
-
-To mirror liked songs for several people (e.g. you and friends) from **one**
-deployment, list each account's refresh token in a JSON file — by default
-`users.json`, or set `AUTOSAVER_USERS_FILE`.
 
 ```json
 {
+  "client_id": "your_spotify_app_client_id",
+  "track_count": 100,
+  "playlist_name": "Liked Songs (Latest 100)",
+  "playlist_public": false,
+  "interval_seconds": 10,
+
   "users": [
     { "name": "me", "refresh_token": "AQ...my-token" },
     { "name": "alex", "refresh_token": "AQ...alex-token", "playlist_name": "Alex latest 100" }
@@ -109,31 +76,69 @@ deployment, list each account's refresh token in a JSON file — by default
 }
 ```
 
-- Only `refresh_token` is required per entry. `name`, `playlist_name`,
-  `playlist_id`, `track_count`, `playlist_public`, and `playlist_description`
-  are optional and fall back to the global defaults.
+- `client_id` and a non-empty `users` list are **required**; everything else is
+  optional and has a default (see [Configuration reference](#configuration-reference)).
+- Top-level keys are the **global defaults**; each entry in `users` may override
+  `playlist_name`, `playlist_id`, `track_count`, `playlist_public`, or
+  `playlist_description` for that account.
 - Each account gets its **own** playlist in its **own** Spotify account, its own
-  change-detection state, and is polled independently. One failing account never
+  change-detection state, and is polled independently — one failing account never
   stops the others.
-- Each person generates their token via the [auth page](#authentication) and
-  sends you the entry, which you paste in.
-- The `SPOTIPY_CLIENT_ID` in `.env` is the shared **app** identifier; only the
-  per-account tokens go in this file.
+- Generate each `refresh_token` with the [auth page](#authentication) below.
+
+> **Security:** `settings.json` holds credentials that can read libraries and
+> edit playlists for every listed account. It's git-ignored by default — keep it
+> private and mount it read-only (as the compose file does).
+
+## Authentication
+
+Autosaver uses the **Authorization Code with PKCE** flow, so it needs **no client
+secret** — only the client id. Accounts authorize through a small static web page
+([`docs/index.html`](docs/index.html)) that runs entirely in the browser and
+hands each person a refresh token to paste into `settings.json`.
+
+### Host the auth page on GitHub Pages
+
+The Client ID isn't committed — it's injected at deploy time by the
+[`pages.yml`](.github/workflows/pages.yml) workflow.
+
+1. Add a repository **variable** with your Client ID:
+   **Settings → Secrets and variables → Actions → Variables → New variable**,
+   name `SPOTIFY_CLIENT_ID`. (It's public info, so a variable is the right fit;
+   a secret works too — flip `vars` to `secrets` in the workflow.)
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+3. Push to `main` (or run the workflow manually). Your page goes live at
+   `https://<username>.github.io/Spotify-autosaver/`. Add that exact URL to the
+   app's **Redirect URIs** in the dashboard (the page uses its own URL as the
+   redirect — nothing to configure in `settings.json`).
+
+Then anyone (you or a friend) opens the page, clicks **Log in with Spotify**,
+approves, **sets their playlist name / track count / public toggle** right on the
+page, and copies the generated entry to send you. You paste it into the `users`
+list. No secret, no server, no local install needed on their end.
 
 > **Heads-up (Spotify limit):** a Spotify app starts in *Development Mode*,
 > capped at **25 users**, and each account's email must be added under
 > **User Management** in the [developer dashboard](https://developer.spotify.com/dashboard)
 > before it can authorize. More than that requires a quota-extension request.
 
-> **Security:** `users.json` holds credentials that can read libraries and edit
-> playlists for every listed account. It's git-ignored by default — keep it
-> private and mount it read-only (as the compose file does).
+## Usage
 
-Copy [`users.example.json`](users.example.json) to `users.json` to get started.
+```bash
+# Run continuously: poll on an interval, sync each account only when it changes.
+# Set a fast interval with "interval_seconds" in settings.json (e.g. 10).
+spotify-autosaver run
+
+# Run a single sync for every account and exit.
+spotify-autosaver sync
+```
+
+By default it reads `settings.json` from the working directory; point it
+elsewhere with `AUTOSAVER_SETTINGS_FILE=/path/to/settings.json`.
 
 ### Docker (build locally)
 
-Set your Client ID in `docker-compose.yml`, then:
+With `settings.json` in place (the compose file mounts it):
 
 ```bash
 docker compose up -d --build   # restarts automatically
@@ -170,23 +175,20 @@ echo "$CR_PAT" | docker login ghcr.io -u cfazilleau --password-stdin
 > push, and for any private package.
 
 **2. Pull and run.** The bundled [`docker-compose.yml`](docker-compose.yml)
-points at the GHCR image and mounts `users.json`. Set your Client ID in it
-(`SPOTIPY_CLIENT_ID`), then:
+points at the GHCR image and mounts `settings.json` — no other config needed:
 
 ```bash
-cp users.example.json users.json # add each account's refresh token
-docker compose pull              # fetch the latest published image
-docker compose up -d             # run continuously, auto-restart
+cp settings.example.json settings.json   # fill in client id + accounts
+docker compose pull                       # fetch the latest published image
+docker compose up -d                      # run continuously, auto-restart
 ```
 
-Add or remove friends by editing `users.json` and running
+Add or remove friends by editing `settings.json` and running
 `docker compose restart`. Or without compose:
 
 ```bash
 docker run -d --name spotify-autosaver --restart unless-stopped \
-  -e SPOTIPY_CLIENT_ID=your_client_id \
-  -e AUTOSAVER_USERS_FILE=/app/users.json \
-  -v "$PWD/users.json:/app/users.json:ro" \
+  -v "$PWD/settings.json:/app/settings.json:ro" \
   ghcr.io/cfazilleau/spotify-autosaver:latest run
 ```
 
@@ -198,17 +200,22 @@ your local Docker uses to pull it. In CI, publishing uses the automatic
 
 ## Configuration reference
 
-| Variable | Default | Description |
+Keys in `settings.json`. Top-level keys are global; those marked *(per-account)*
+can also be set on an individual entry in `users` to override the global value.
+
+| Key | Default | Description |
 | --- | --- | --- |
-| `SPOTIPY_CLIENT_ID` | — | **Required.** Spotify app client id. |
-| `SPOTIPY_REDIRECT_URI` | *(Pages URL)* | Must match the dashboard and the auth page's URL. |
-| `AUTOSAVER_USERS_FILE` | `users.json` | JSON file of accounts to sync. |
-| `AUTOSAVER_TRACK_COUNT` | `100` | How many recent liked songs to mirror. |
-| `AUTOSAVER_PLAYLIST_ID` | — | Target an existing playlist by id. |
-| `AUTOSAVER_PLAYLIST_NAME` | `Liked Songs (Latest 100)` | Name to find/create. |
-| `AUTOSAVER_PLAYLIST_PUBLIC` | `false` | Make the created playlist public. |
-| `AUTOSAVER_PLAYLIST_DESCRIPTION` | *(see .env.example)* | Description for created playlist. |
-| `AUTOSAVER_INTERVAL_SECONDS` | `3600` | Poll interval for `run` (seconds). Short values are safe. |
+| `client_id` | — | **Required.** Spotify app client id. |
+| `users` | — | **Required.** List of accounts; each needs `refresh_token`, optional `name`. |
+| `track_count` | `100` | How many recent liked songs to mirror. *(per-account)* |
+| `playlist_name` | `Liked Songs (Latest 100)` | Playlist to find/create. *(per-account)* |
+| `playlist_id` | — | Target an existing playlist by id. *(per-account only)* |
+| `playlist_public` | `false` | Make the created playlist public. *(per-account)* |
+| `playlist_description` | *(auto)* | Description for the created playlist. *(per-account)* |
+| `interval_seconds` | `3600` | Poll interval for `run` (seconds). Short values are safe. |
+
+The only environment variable is `AUTOSAVER_SETTINGS_FILE` (path to the settings
+file; defaults to `settings.json`).
 
 ## Development
 

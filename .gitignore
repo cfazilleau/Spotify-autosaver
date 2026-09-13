@@ -1,11 +1,5 @@
-# Secrets & tokens
-.env
-.env.*
-!.env.example
-.cache
-.cache-*
-# Per-account refresh tokens — keep the real file out of git
-users.json
+# Settings & tokens — keep the real config (client id + refresh tokens) private
+settings.json
 
 # Python
 __pycache__/

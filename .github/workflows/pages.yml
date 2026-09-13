@@ -1,0 +1,54 @@
+name: Deploy auth page
+
+# Publishes docs/ to GitHub Pages, injecting the Spotify Client ID at deploy
+# time so it never has to be committed. Set it under
+#   Settings → Secrets and variables → Actions → Variables → New variable
+#   name: SPOTIFY_CLIENT_ID
+# (The client id is public — a repository *variable* is the right fit. To use a
+#  secret instead, change `vars.SPOTIFY_CLIENT_ID` to `secrets.SPOTIFY_CLIENT_ID`.)
+#
+# Requires: Settings → Pages → Build and deployment → Source = "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inject Spotify Client ID
+        env:
+          CLIENT_ID: ${{ vars.SPOTIFY_CLIENT_ID }}
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "::error::Repository variable SPOTIFY_CLIENT_ID is not set."
+            exit 1
+          fi
+          sed -i "s|__SPOTIFY_CLIENT_ID__|${CLIENT_ID}|g" docs/index.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
